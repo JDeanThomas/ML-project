@@ -1,0 +1,79 @@
+Practical Machine Learning - Prediction Assignment Writeup
+==========================================================
+
+Machine Learning analysis of the Weight Lifting Exercise Dataset using a random forest model. The caret and randomForest libraries were used to construct this analysis.
+
+
+```{r, results='hide', echo=FALSE}
+library(Hmisc)
+library(caret)
+library(randomForest)
+library(foreach)
+library(doParallel)
+set.seed(2048)
+options(warn=-1)
+```
+
+Loaded Data and added NA values where #DIV/0! values exsisted as a best practice.
+
+```{r, results='hide'}
+trainingUrl <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+testUrl <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+training_data <- read.csv(trainingUrl, na.strings=c("#DIV/0!") )
+test_data <- read.csv(testUrl, na.strings=c("#DIV/0!") )
+```
+
+Converted all columns to class numeric.
+
+```{r}
+for(i in c(8:ncol(training_data)-1)) {training_data[,i] = as.numeric(as.character(training_data[,i]))}
+
+for(i in c(8:ncol(test_data)-1)) {test_data[,i] = as.numeric(as.character(test_data[,i]))}
+```
+
+Cleaned data chose a feature set that only included complete columns.  
+
+Determine and display feature set.
+
+```{r}
+feature_set <- colnames(training_data[colSums(is.na(training_data)) == 0])[-(1:7)]
+model_data <- training_data[feature_set]
+feature_set
+```
+
+Create traing and test data sets and model.
+
+```{r}
+idx <- createDataPartition(y=model_data$classe, p=0.75, list=FALSE )
+training <- model_data[idx,]
+testing <- model_data[-idx,]
+```
+
+Built 5 random forests with 150 trees per forest.
+
+```{r}
+registerDoParallel()
+x <- training[-ncol(training)]
+y <- training$classe
+
+rf <- foreach(ntree=rep(150, 6), .combine=randomForest::combine, .packages='randomForest') %dopar% {
+randomForest(x, y, ntree=ntree) 
+}
+```
+
+Error summarys for training and test data.
+
+```{r}
+predictions1 <- predict(rf, newdata=training)
+confusionMatrix(predictions1,training$classe)
+
+
+predictions2 <- predict(rf, newdata=testing)
+confusionMatrix(predictions2,testing$classe)
+```
+
+Conclusion:
+--------------------------------
+
+The confusion matrix shows the model proved to be accurate when applied to the test set data, validating the modle choice.
+
